@@ -1,0 +1,14 @@
+[project]
+name = "blog-assistant-backend"
+version = "0.1.0"
+description = "Backend for AI Blog Post App"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "anthropic>=0.40.0",
+    "python-multipart",
+    "pydantic>=2.0",
+    "markdown",
+    "weasyprint",
+]
