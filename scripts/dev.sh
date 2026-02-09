@@ -4,12 +4,16 @@
 
 trap 'kill 0' EXIT
 
+# Store the project root directory (resolve once at startup)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 echo "Starting AI Blog Post App..."
 echo ""
 
 # Start backend
 echo "Starting backend on http://localhost:8000..."
-cd "$(dirname "$0")/../backend"
+cd "$PROJECT_ROOT/backend"
 uv run uvicorn src.main:app --reload --port 8000 &
 
 # Wait for backend to be ready
@@ -17,7 +21,7 @@ sleep 2
 
 # Start frontend
 echo "Starting frontend on http://localhost:5173..."
-cd "$(dirname "$0")/../frontend"
+cd "$PROJECT_ROOT/frontend"
 npm run dev &
 
 echo ""

@@ -9,7 +9,7 @@ ai-blogpost-app/
 ├── backend/          # FastAPI + Anthropic Claude API
 ├── frontend/         # React + TypeScript + Vite
 ├── scripts/          # Development scripts
-└── tech-blog-helper/ # Claude skill for blog drafting
+└── .claude/skills/   # Claude skills (tech-blog-helper)
 ```
 
 ## Tech Stack
@@ -20,11 +20,13 @@ ai-blogpost-app/
 - Tailwind CSS 4 for styling
 - Radix UI for components
 - CodeMirror for markdown editing
+- Zustand for state management
 
 **Backend:**
 - FastAPI + Uvicorn
-- Anthropic SDK for Claude API
+- Anthropic SDK for Claude API (agentic tool-calling loop)
 - WeasyPrint for PDF export
+- SSE streaming for real-time responses
 
 ## Quick Start
 
@@ -45,44 +47,76 @@ cd backend && uv run uvicorn src.main:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
-## Backend Structure
+## Architecture
 
-- `src/main.py` - FastAPI app entry point
-- `src/api/routes/` - API endpoints (draft, feedback, export, files)
-- `src/api/models/` - Pydantic models (planning, drafting, export)
-- `src/services/` - Business logic (agent_service, export_service)
+### Backend
+- `src/main.py` - FastAPI app entry point with CORS
+- `src/api/routes/session.py` - Session management (create, get, delete, transition)
+- `src/api/routes/chat.py` - SSE message streaming endpoint
+- `src/api/models/` - Pydantic models (session, chat)
+- `src/services/agent_service.py` - Agentic tool-calling loop (max 10 iterations)
+- `src/services/session_manager.py` - In-memory session state
+- `src/prompts/` - Phase-based system prompts (planning, drafting, review agents)
+- `src/tools/` - Tool implementations (reference_tools, blog_tools)
 - `src/utils/` - Utilities (file_parser, word_count)
 
-## Frontend Structure
+### Frontend
+- `src/App.tsx` - Main app layout (sidebar + main area)
+- `src/stores/` - Zustand stores:
+  - `sessionStore.ts` - Session ID, phase, planning context
+  - `chatStore.ts` - Messages, streaming state, queued messages
+  - `draftStore.ts` - Outline, draft content, suggestions, stats
+  - `navigationStore.ts` - Sidebar collapse, active artifact view
+  - `sessionListStore.ts` - Multi-session slots, save/load/validate
+- `src/api/client.ts` - REST API client (session, export, stats, files)
+- `src/api/stream.ts` - SSE streaming client
+- `src/components/interactive/` - Chat panel, message input, message display
+- `src/components/artifacts/` - Artifact viewers (outline, draft, review, export)
+- `src/components/layout/` - Sidebar and main area layout
+- `src/components/shared/` - Markdown renderer, error boundary
+- `src/lib/export.ts` - Shared download/export utilities
+- `src/contexts/ThemeContext.tsx` - Dark/light theme
 
-- `src/App.tsx` - Main app with tab navigation
-- `src/components/planning/` - Planning tab components
-- `src/components/drafting/` - Drafting tab components
-- `src/components/publish/` - Publish tab components
-- `src/components/ui/` - Shared UI components
-- `src/contexts/` - React contexts (BlogContext, ThemeContext)
-- `src/api/client.ts` - API client
+### SSE Event Types
+`text`, `tool_use`, `tool_result`, `phase_change`, `outline`, `draft_chunk`, `review`, `done`
+
+### Workflow Phases
+`planning` → `drafting` → `reviewing` → `exporting`
 
 ## App Features
 
-**Planning Tab:**
-- Blog abstract/outline input
-- Target reader persona selection
-- Technical detail level menu
-- Post length selector
-- Writing style options
-- Reference/resource input (files, links)
-- Generate draft button
+**Chat-First UX:**
+- Conversational interface to guide blog post creation
+- AI agent collects topic, audience, style, references through dialogue
+- Real-time streaming responses with tool activity indicators
 
-**Drafting Tab:**
-- Interactive draft editor
-- AI feedback and recommendations
-- Grammar/spelling/reference fixes
-- Word count statistics
+**Artifacts Panel (right side):**
+- Outline viewer — generated outline from planning phase
+- Draft viewer — CodeMirror editor / markdown preview with download buttons (MD/PDF)
+- Review viewer — Suggestions with apply/dismiss, "Ask Agent to Fix" button, download draft
+- Export panel — Word count stats, download Markdown/PDF
 
-**Publish Tab:**
-- Final draft preview
-- Export to Markdown or PDF
+**Session Management:**
+- Up to 3 concurrent sessions
+- Session switching with backend validation (auto-recovers if backend restarted)
+- Sessions persisted to localStorage with save/restore
+
+## Testing
+
+**Backend** (62 tests):
+```bash
+cd backend && uv run pytest tests/ -v
+```
+
+**Frontend** (44 tests, 7 files):
+```bash
+cd frontend && npx vitest run
+```
+
+**TypeScript type check:**
+```bash
+cd frontend && npx tsc --noEmit
+```
 
 ## Development Guidelines
 
@@ -90,4 +124,5 @@ cd frontend && npm run dev
 - Use `uv run` to execute Python code
 - Keep `pyproject.toml` minimal
 - Avoid excessive try/except blocks
-- Use `./tech-blog-helper/SKILL.md` for blog writing guidance
+- Backend returns `session_id`/`workflow_phase`, frontend uses `id`/`phase` — mapping in client.ts
+- Tool names must match exactly between backend registry and frontend TOOL_LABELS

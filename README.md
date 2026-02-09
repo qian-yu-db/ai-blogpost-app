@@ -1,20 +1,24 @@
 # AI Blog Post App
 
-A full-stack web application powered by Claude AI to help you plan, draft, and publish technical blog posts for Medium or Substack.
+A full-stack web application powered by Claude AI to help you plan, draft, review, and export technical blog posts for Medium or Substack.
 
 ## Features
 
-- **Planning Tab** - Define your blog post with abstract, target audience, technical level, length, and writing style. Add references like code files or documentation links.
-- **Drafting Tab** - Interactive editor with AI-powered feedback, grammar/spelling suggestions, and word count statistics.
-- **Publish Tab** - Preview your final draft and export to Markdown or PDF.
+- **Chat-First UX** — Conversational AI agent guides you through planning, drafting, and reviewing your blog post
+- **Artifacts Panel** — Real-time outline, draft editor (CodeMirror), review suggestions, and export stats displayed alongside the chat
+- **Multi-Session Support** — Work on up to 3 blog posts concurrently, switch between them seamlessly
+- **Review & Fix** — AI-generated review suggestions with one-click apply, or ask the agent to fix all remaining issues
+- **Export** — Download as Markdown or PDF from any stage once a draft exists
+- **Dark/Light Theme** — Toggle between dark and light modes
 
 ## Tech Stack
 
 | Frontend | Backend |
 |----------|---------|
 | React 19 + TypeScript | FastAPI + Uvicorn |
-| Vite | Anthropic Claude API |
-| Tailwind CSS | WeasyPrint (PDF export) |
+| Vite 7 | Anthropic Claude API (agentic tool-calling) |
+| Tailwind CSS 4 | SSE streaming |
+| Zustand (state management) | WeasyPrint (PDF export) |
 | Radix UI + CodeMirror | |
 
 ## Prerequisites
@@ -74,20 +78,41 @@ cd frontend && npm run dev
 ai-blogpost-app/
 ├── backend/
 │   ├── src/
-│   │   ├── api/routes/     # API endpoints
+│   │   ├── api/routes/     # Session & chat SSE endpoints
 │   │   ├── api/models/     # Pydantic models
-│   │   ├── services/       # Business logic
-│   │   └── utils/          # Utilities
-│   └── pyproject.toml
+│   │   ├── prompts/        # Phase-based agent system prompts
+│   │   ├── services/       # Agent service, session manager
+│   │   ├── tools/          # Reference & blog tool implementations
+│   │   └── utils/          # File parser, word count
+│   └── tests/              # 62 pytest tests
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── contexts/       # React contexts
-│   │   └── api/            # API client
-│   └── package.json
+│   │   ├── api/            # REST client + SSE stream
+│   │   ├── components/
+│   │   │   ├── artifacts/  # Outline, Draft, Review, Export viewers
+│   │   │   ├── interactive/# Chat panel, message input
+│   │   │   ├── layout/     # Sidebar, main area
+│   │   │   └── shared/     # Markdown renderer, error boundary
+│   │   ├── stores/         # Zustand stores (session, chat, draft, nav)
+│   │   ├── lib/            # Shared utilities (export helpers)
+│   │   └── contexts/       # Theme context
+│   └── vitest.config.ts    # 44 vitest tests
 ├── scripts/
-│   └── dev.sh              # Development script
-└── tech-blog-helper/       # Blog writing skill
+│   └── dev.sh              # Start both servers
+└── .claude/skills/         # Blog writing skill & references
+```
+
+## Testing
+
+```bash
+# Backend (62 tests)
+cd backend && uv run pytest tests/ -v
+
+# Frontend (44 tests)
+cd frontend && npx vitest run
+
+# TypeScript type check
+cd frontend && npx tsc --noEmit
 ```
 
 ## License
