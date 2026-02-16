@@ -10,6 +10,7 @@ export type AgentSSEEvent =
   | { type: 'outline'; content: string }
   | { type: 'draft_chunk'; content: string }
   | { type: 'review'; suggestions: Suggestion[] }
+  | { type: 'draft_updated'; content: string }
   | { type: 'done' }
 
 // Chat

@@ -5,6 +5,7 @@ interface DraftStore {
   outline: string
   draft: string
   suggestions: Suggestion[]
+  reviewSummary: string
   stats: StatsResponse | null
   isGenerating: boolean
 
@@ -14,6 +15,7 @@ interface DraftStore {
   appendDraft: (chunk: string) => void
   setSuggestions: (suggestions: Suggestion[]) => void
   removeSuggestion: (index: number) => void
+  setReviewSummary: (summary: string) => void
   setStats: (stats: StatsResponse | null) => void
   setIsGenerating: (generating: boolean) => void
   reset: () => void
@@ -23,6 +25,7 @@ export const useDraftStore = create<DraftStore>((set) => ({
   outline: '',
   draft: '',
   suggestions: [],
+  reviewSummary: '',
   stats: null,
   isGenerating: false,
 
@@ -35,6 +38,7 @@ export const useDraftStore = create<DraftStore>((set) => ({
     set((state) => ({
       suggestions: state.suggestions.filter((_, i) => i !== index),
     })),
+  setReviewSummary: (summary) => set({ reviewSummary: summary }),
   setStats: (stats) => set({ stats }),
   setIsGenerating: (generating) => set({ isGenerating: generating }),
   reset: () =>
@@ -42,6 +46,7 @@ export const useDraftStore = create<DraftStore>((set) => ({
       outline: '',
       draft: '',
       suggestions: [],
+      reviewSummary: '',
       stats: null,
       isGenerating: false,
     }),

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from src.api.models.session import (
     StartSessionRequest,
@@ -97,6 +98,20 @@ async def transition_phase(session_id: str, request: TransitionRequest) -> Sessi
 
     session = session_manager.get_session(session_id)
     return session_to_response(session)
+
+
+class UpdateDraftRequest(BaseModel):
+    content: str
+
+
+@router.post("/{session_id}/update-draft")
+async def update_draft(session_id: str, request: UpdateDraftRequest):
+    """Update the draft content (for manual edits or file upload)."""
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session_manager.update_session(session_id, draft_content=request.content)
+    return {"status": "updated", "content_length": len(request.content)}
 
 
 @router.delete("/{session_id}")

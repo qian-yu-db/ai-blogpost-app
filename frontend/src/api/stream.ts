@@ -65,6 +65,9 @@ export async function* streamSSE(url: string, body: unknown): AsyncGenerator<Age
         case 'review':
           yield { type: 'review', suggestions: parsed.suggestions }
           break
+        case 'draft_updated':
+          yield { type: 'draft_updated', content: parsed.content }
+          break
         case 'done':
           yield { type: 'done' }
           return

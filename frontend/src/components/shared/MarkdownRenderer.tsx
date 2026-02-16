@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -14,6 +15,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   return (
     <article className={className ?? 'prose max-w-none dark:prose-invert'}>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           pre({ children }) {
             return <>{children}</>

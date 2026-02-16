@@ -9,6 +9,19 @@ vi.mock('lucide-react', () => ({
   X: () => <div data-testid="x-icon" />,
   Wrench: () => <div data-testid="wrench-icon" />,
   Download: () => <div data-testid="download-icon" />,
+  Upload: () => <div data-testid="upload-icon" />,
+  RefreshCw: () => <div data-testid="refresh-icon" />,
+  FileText: () => <div data-testid="filetext-icon" />,
+}))
+
+// Mock MarkdownRenderer
+vi.mock('@/components/shared/MarkdownRenderer', () => ({
+  MarkdownRenderer: ({ content }: { content: string }) => <div data-testid="markdown-renderer">{content}</div>,
+}))
+
+// Mock updateDraft API
+vi.mock('@/api/client', () => ({
+  updateDraft: vi.fn().mockResolvedValue(undefined),
 }))
 
 const { ReviewViewer } = await import('@/components/artifacts/ReviewViewer')
@@ -30,6 +43,7 @@ describe('ReviewViewer', () => {
       outline: '',
       draft: 'Some draft with teh word in it.',
       suggestions: [],
+      reviewSummary: '',
       stats: null,
       isGenerating: false,
     })

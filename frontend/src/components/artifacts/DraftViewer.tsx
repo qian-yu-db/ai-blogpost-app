@@ -5,7 +5,9 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer'
 import { useDraftStore } from '@/stores/draftStore'
-import { useState } from 'react'
+import { useSessionStore } from '@/stores/sessionStore'
+import { updateDraft } from '@/api/client'
+import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Code, Eye, FileText, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -75,6 +77,17 @@ export function DraftViewer() {
   const isGenerating = useDraftStore((s) => s.isGenerating)
   const { theme } = useTheme()
   const [view, setView] = useState<'editor' | 'preview'>('preview')
+  const sessionId = useSessionStore((s) => s.sessionId)
+  const syncTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    if (!draft || !sessionId || isGenerating) return
+    clearTimeout(syncTimer.current)
+    syncTimer.current = setTimeout(() => {
+      updateDraft(sessionId, draft).catch(() => {})
+    }, 2000)
+    return () => clearTimeout(syncTimer.current)
+  }, [draft, sessionId, isGenerating])
 
   if (!draft) {
     return (

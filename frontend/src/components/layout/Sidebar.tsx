@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -13,6 +14,8 @@ import {
   loadSession,
   WELCOME_MESSAGE,
   validateBackendSession,
+  formatRelativeTime,
+  MAX_SLOTS,
 } from '@/stores/sessionListStore'
 import { useTheme } from '@/contexts/ThemeContext'
 import { startSession, deleteSession } from '@/api/client'
@@ -32,6 +35,7 @@ import {
   BookOpen,
   ClipboardCheck,
   X,
+  Trash2,
 } from 'lucide-react'
 import type { WorkflowPhase } from '@/types'
 
@@ -60,6 +64,7 @@ export function Sidebar() {
   const outline = useDraftStore((s) => s.outline)
   const draft = useDraftStore((s) => s.draft)
   const suggestions = useDraftStore((s) => s.suggestions)
+  const reviewSummary = useDraftStore((s) => s.reviewSummary)
   const stats = useDraftStore((s) => s.stats)
   const resetDraft = useDraftStore((s) => s.reset)
 
@@ -80,8 +85,12 @@ export function Sidebar() {
 
   const { theme, toggleTheme } = useTheme()
 
+  const clearOtherSlots = useSessionListStore((s) => s.clearOtherSlots)
+  const clearOlderThan = useSessionListStore((s) => s.clearOlderThan)
+
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editLabel, setEditLabel] = useState('')
+  const [showCleanupMenu, setShowCleanupMenu] = useState(false)
 
   const handleRename = (index: number) => {
     const trimmed = editLabel.trim()
@@ -97,7 +106,7 @@ export function Sidebar() {
     switch (key) {
       case 'outline': return !!outline
       case 'draft': return !!draft
-      case 'review': return suggestions.length > 0
+      case 'review': return suggestions.length > 0 || !!reviewSummary
       case 'export': return !!draft
     }
   }
@@ -109,7 +118,7 @@ export function Sidebar() {
     }
 
     // If we're at max slots, replace the oldest inactive one
-    if (slots.length >= 3) {
+    if (slots.length >= MAX_SLOTS) {
       const oldestInactive = slots.findIndex((_, i) => i !== activeIndex)
       if (oldestInactive !== -1) {
         const old = slots[oldestInactive]
@@ -179,12 +188,28 @@ export function Sidebar() {
     await deleteSession(slot.sessionId).catch(() => {})
     removeSlot(index)
 
-    // If we removed the active session, reset stores
-    if (index === activeIndex) {
+    // If we removed the active session (or the last session), create a fresh one
+    if (index === activeIndex || slots.length <= 1) {
       reset()
       resetDraft()
       clearMessages()
       setActiveArtifact(null)
+
+      // If that was the last slot, auto-create a new session
+      if (slots.length <= 1) {
+        const newSession = await startSession()
+        useSessionStore.getState().setSessionId(newSession.id)
+        if (newSession.planningContext) {
+          useSessionStore.getState().updatePlanningContext(newSession.planningContext)
+        }
+        useChatStore.getState().addMessage(WELCOME_MESSAGE())
+        addSlot({
+          sessionId: newSession.id,
+          label: 'Untitled Post',
+          phase: 'planning',
+          updatedAt: new Date().toISOString(),
+        })
+      }
     }
   }
 
@@ -201,7 +226,7 @@ export function Sidebar() {
   return (
     <div className="flex h-full w-[260px] flex-col border-r bg-sidebar">
       <div className="flex items-center justify-between px-4 py-3">
-        <h2 className="text-sm font-bold text-sidebar-foreground">Blog Writer</h2>
+        <h2 className="text-sm font-bold gradient-text">Blog Writer</h2>
         <Button size="icon-xs" variant="ghost" onClick={toggleSidebar}>
           <PanelLeftClose className="h-4 w-4" />
         </Button>
@@ -213,36 +238,47 @@ export function Sidebar() {
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Workflow
           </p>
-          <div className="space-y-1">
-            {WORKFLOW_STEPS.map((step, index) => {
-              const isComplete = index < currentPhaseIndex
-              const isCurrent = index === currentPhaseIndex
-              const Icon = step.icon
+          <div className="relative ml-3">
+            {/* Progress line */}
+            <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border" />
+            <div
+              className="absolute left-[7px] top-2 w-0.5 bg-primary transition-all duration-500"
+              style={{ height: `${Math.max(0, currentPhaseIndex) * 36}px` }}
+            />
 
-              return (
-                <div
-                  key={step.phase}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm',
-                    isCurrent && 'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
-                    isComplete && 'text-sidebar-foreground',
-                    !isComplete && !isCurrent && 'text-muted-foreground'
-                  )}
-                >
-                  {isComplete ? (
-                    <CheckCircle2 className="h-4 w-4 text-sidebar-primary" />
-                  ) : (
-                    <Circle
-                      className={cn(
-                        'h-4 w-4',
-                        isCurrent ? 'text-sidebar-primary' : 'text-muted-foreground/40'
+            <div className="relative space-y-1">
+              {WORKFLOW_STEPS.map((step, index) => {
+                const isComplete = index < currentPhaseIndex
+                const isCurrent = index === currentPhaseIndex
+                const Icon = step.icon
+
+                return (
+                  <div
+                    key={step.phase}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-all duration-300',
+                      isCurrent && 'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+                      isComplete && 'text-sidebar-foreground',
+                      !isComplete && !isCurrent && 'text-muted-foreground'
+                    )}
+                  >
+                    <div className="relative">
+                      {isComplete ? (
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                      ) : isCurrent ? (
+                        <>
+                          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
+                          <Circle className="h-4 w-4 text-primary fill-primary" />
+                        </>
+                      ) : (
+                        <Circle className="h-4 w-4 text-muted-foreground/40" />
                       )}
-                    />
-                  )}
-                  <span>{step.label}</span>
-                </div>
-              )
-            })}
+                    </div>
+                    <span>{step.label}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           <Separator className="my-4" />
@@ -326,65 +362,119 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Sessions */}
-      <div className="border-t px-4 py-3 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Sessions
-        </p>
-        <div className="space-y-1">
-          {slots.map((slot, index) => (
-            <div
-              key={slot.sessionId}
-              className={cn(
-                'group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors',
-                index === activeIndex
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
-              )}
-              onClick={() => handleSwitchSession(index)}
-            >
-              {editingIndex === index ? (
-                <input
-                  className="flex-1 bg-transparent border-b border-sidebar-primary text-sm outline-none"
-                  value={editLabel}
-                  onChange={(e) => setEditLabel(e.target.value)}
-                  onBlur={() => handleRename(index)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRename(index)
-                    if (e.key === 'Escape') setEditingIndex(null)
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <span
-                  className="truncate flex-1"
-                  onDoubleClick={() => { setEditingIndex(index); setEditLabel(slot.label) }}
+      <div className="border-t flex flex-col min-h-0" style={{ maxHeight: '45%' }}>
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Sessions ({slots.length})
+          </p>
+          <div className="flex items-center gap-1">
+            {slots.length > 1 && (
+              <div className="relative">
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  onClick={() => setShowCleanupMenu(!showCleanupMenu)}
+                  title="Clean up sessions"
                 >
-                  {slot.label}
-                </span>
-              )}
-              {slots.length > 1 && (
-                <button
-                  className="opacity-0 group-hover:opacity-100 shrink-0 rounded p-0.5 hover:bg-destructive/20 transition-opacity"
-                  onClick={(e) => handleRemoveSession(index, e)}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ))}
-          {slots.length < 3 && (
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+                {showCleanupMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border bg-popover p-1 shadow-md">
+                    <button
+                      className="w-full rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent transition-colors"
+                      onClick={() => {
+                        clearOtherSlots()
+                        setShowCleanupMenu(false)
+                      }}
+                    >
+                      Clear all except current
+                    </button>
+                    <button
+                      className="w-full rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent transition-colors"
+                      onClick={() => {
+                        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+                        clearOlderThan(cutoff)
+                        setShowCleanupMenu(false)
+                      }}
+                    >
+                      Clear older than 1 day
+                    </button>
+                    <button
+                      className="w-full rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent transition-colors"
+                      onClick={() => {
+                        const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+                        clearOlderThan(cutoff)
+                        setShowCleanupMenu(false)
+                      }}
+                    >
+                      Clear older than 1 week
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <Button
-              size="sm"
+              size="icon-xs"
               variant="ghost"
-              className="w-full justify-start text-muted-foreground"
               onClick={handleNewSession}
+              title="New post"
+              disabled={slots.length >= MAX_SLOTS}
             >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New Post
+              <Plus className="h-3 w-3" />
             </Button>
-          )}
+          </div>
         </div>
-        <div className="flex items-center pt-1">
+        <ScrollArea className="flex-1 px-4 pb-2">
+          <div className="space-y-1">
+            {slots.map((slot, index) => (
+              <div
+                key={slot.sessionId}
+                className={cn(
+                  'group rounded-md px-2 py-1.5 cursor-pointer transition-colors',
+                  index === activeIndex
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
+                )}
+                onClick={() => handleSwitchSession(index)}
+              >
+                <div className="flex items-center justify-between">
+                  {editingIndex === index ? (
+                    <input
+                      className="flex-1 bg-transparent border-b border-sidebar-primary text-sm outline-none"
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      onBlur={() => handleRename(index)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRename(index)
+                        if (e.key === 'Escape') setEditingIndex(null)
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span
+                      className={cn('truncate flex-1 text-sm', index === activeIndex && 'font-medium')}
+                      onDoubleClick={() => { setEditingIndex(index); setEditLabel(slot.label) }}
+                    >
+                      {slot.label}
+                    </span>
+                  )}
+                  <button
+                    className="opacity-0 group-hover:opacity-100 shrink-0 rounded p-0.5 hover:bg-destructive/20 transition-opacity"
+                    onClick={(e) => handleRemoveSession(index, e)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">{slot.phase}</Badge>
+                  <span className="text-[10px] text-muted-foreground">{formatRelativeTime(slot.updatedAt)}</span>
+                  {slot.wordCount && <span className="text-[10px] text-muted-foreground">{slot.wordCount}w</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+        <div className="flex items-center px-4 py-2 border-t">
           <Button size="icon-sm" variant="ghost" onClick={toggleTheme}>
             {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </Button>

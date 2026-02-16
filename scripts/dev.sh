@@ -11,9 +11,12 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 echo "Starting AI Blog Post App..."
 echo ""
 
-# Start backend
+# Start backend (set DYLD_LIBRARY_PATH for WeasyPrint PDF export on macOS)
 echo "Starting backend on http://localhost:8000..."
 cd "$PROJECT_ROOT/backend"
+if [ -d "/opt/homebrew/lib" ]; then
+  export DYLD_LIBRARY_PATH="/opt/homebrew/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+fi
 uv run uvicorn src.main:app --reload --port 8000 &
 
 # Wait for backend to be ready

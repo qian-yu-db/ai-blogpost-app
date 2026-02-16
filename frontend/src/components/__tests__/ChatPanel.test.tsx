@@ -68,6 +68,8 @@ describe('ChatPanel', () => {
     useChatStore.setState({ messages, isStreaming: true })
 
     render(<ChatPanel />)
-    expect(screen.getByText('Thinking...')).toBeInTheDocument()
+    // Bouncing dots indicator — 3 spans inside a container
+    const dots = document.querySelectorAll('.rounded-full.bg-primary\\/60')
+    expect(dots.length).toBe(3)
   })
 })

@@ -28,29 +28,41 @@ export function ExportPanel() {
 
   const handleExportMd = async () => {
     setIsExportingMd(true)
-    const blob = await exportMarkdown(draft, title)
-    downloadBlob(blob, `${title}.md`)
-    setIsExportingMd(false)
+    try {
+      const blob = await exportMarkdown(draft, title)
+      downloadBlob(blob, `${title}.md`)
+    } catch {
+      alert('Failed to export Markdown')
+    } finally {
+      setIsExportingMd(false)
+    }
   }
 
   const handleExportPdf = async () => {
     setIsExportingPdf(true)
-    const blob = await exportPdf(draft, title)
-    downloadBlob(blob, `${title}.pdf`)
-    setIsExportingPdf(false)
+    try {
+      const blob = await exportPdf(draft, title)
+      downloadBlob(blob, `${title}.pdf`)
+    } catch {
+      alert('Failed to export PDF. WeasyPrint system libraries may not be installed.')
+    } finally {
+      setIsExportingPdf(false)
+    }
   }
 
   if (!draft) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center text-muted-foreground gap-3">
+        <Download className="h-10 w-10 text-muted-foreground/30" />
         <p className="text-sm">No draft to export yet</p>
+        <p className="text-xs">Complete the drafting phase first</p>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
+      <div className="border-b bg-accent/50 px-4 py-3">
         <h3 className="font-semibold text-sm">Export</h3>
       </div>
       <div className="flex-1 p-4 space-y-6">

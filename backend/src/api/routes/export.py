@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from src.api.models.export import ExportRequest
@@ -23,7 +23,10 @@ async def download_markdown(request: ExportRequest):
 @router.post("/pdf")
 async def download_pdf(request: ExportRequest):
     """Download the blog post as a PDF file."""
-    pdf_bytes = export_pdf(request.content, request.title)
+    try:
+        pdf_bytes = export_pdf(request.content, request.title)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     filename = f"{request.title}.pdf"
 
     return Response(

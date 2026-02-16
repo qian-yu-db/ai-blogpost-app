@@ -13,7 +13,9 @@ const TOOL_LABELS: Record<string, string> = {
   parse_code_file: 'Parsing code file',
   create_outline: 'Creating outline',
   review_draft: 'Reviewing draft',
+  revise_draft: 'Revising draft',
   get_word_stats: 'Calculating stats',
+  finish_review: 'Finishing review',
 }
 
 export function ToolActivityCard({ activity }: ToolActivityCardProps) {
