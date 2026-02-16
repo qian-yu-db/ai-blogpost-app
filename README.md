@@ -1,15 +1,15 @@
 # AI Blog Post App
 
-A full-stack web application powered by Claude AI to help you plan, draft, review, and export technical blog posts for Medium or Substack.
+A full-stack web application powered by Claude AI to help you plan, draft, review, and export technical blog posts for Medium or Substack. Features an iterative review loop, sci-fi animated dark theme, and multi-session management.
 
 ## Features
 
-- **Chat-First UX** — Conversational AI agent guides you through planning, drafting, and reviewing your blog post
+- **Chat-First UX** — Conversational AI agent guides you through planning, drafting, and reviewing your blog post with real-time streaming
 - **Artifacts Panel** — Real-time outline, draft editor (CodeMirror), review suggestions, and export stats displayed alongside the chat
-- **Multi-Session Support** — Work on up to 3 blog posts concurrently, switch between them seamlessly
-- **Review & Fix** — AI-generated review suggestions with one-click apply, or ask the agent to fix all remaining issues
-- **Export** — Download as Markdown or PDF from any stage once a draft exists
-- **Dark/Light Theme** — Toggle between dark and light modes
+- **Iterative Review Loop** — AI can revise drafts automatically, or upload your own fixed `.md` file and request a new review
+- **Multi-Session Support** — Work on up to 10 blog posts concurrently with auto-generated labels, bulk cleanup, and session persistence
+- **Export** — Download as Markdown or PDF with word count, character count, and estimated reading time
+- **Sci-Fi Dark Theme** — Animated background beams (Aceternity UI), gradient accents, entrance animations, with light mode fallback
 
 ## Tech Stack
 
@@ -19,7 +19,9 @@ A full-stack web application powered by Claude AI to help you plan, draft, revie
 | Vite 7 | Anthropic Claude API (agentic tool-calling) |
 | Tailwind CSS 4 | SSE streaming |
 | Zustand (state management) | WeasyPrint (PDF export) |
-| Radix UI + CodeMirror | |
+| Radix UI + CodeMirror | In-memory session manager |
+| Motion (Framer Motion) | Phase-based system prompts |
+| remark-gfm (Markdown tables) | |
 
 ## Prerequisites
 
@@ -32,7 +34,7 @@ A full-stack web application powered by Claude AI to help you plan, draft, revie
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ai-blogpost-app.git
+   git clone https://github.com/qian-yu-db/ai-blogpost-app.git
    cd ai-blogpost-app
    ```
 
@@ -72,30 +74,44 @@ cd backend && uv run uvicorn src.main:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
+## Workflow
+
+The app follows a 4-phase workflow, each with dedicated AI agent prompts and tools:
+
+1. **Planning** — Chat with the agent about your topic, audience, style, and references. The agent collects context and generates an outline.
+2. **Drafting** — Approve the outline to trigger full draft generation. The agent writes the complete blog post with code examples.
+3. **Reviewing** — The agent reviews the draft across 4 dimensions (technical accuracy, clarity, audience fit, polish). You can:
+   - Apply individual suggestions with one click
+   - Ask the agent to "Revise All" automatically
+   - Upload a manually revised `.md` file
+   - Request a new review after edits
+4. **Exporting** — Download the final draft as Markdown or PDF with word count stats.
+
 ## Project Structure
 
 ```
 ai-blogpost-app/
 ├── backend/
 │   ├── src/
-│   │   ├── api/routes/     # Session & chat SSE endpoints
+│   │   ├── api/routes/     # Session, chat SSE, export, file upload endpoints
 │   │   ├── api/models/     # Pydantic models
 │   │   ├── prompts/        # Phase-based agent system prompts
-│   │   ├── services/       # Agent service, session manager
-│   │   ├── tools/          # Reference & blog tool implementations
+│   │   ├── services/       # Agent service (tool-calling loop), session manager
+│   │   ├── tools/          # Reference tools, blog tools (10 tools total)
 │   │   └── utils/          # File parser, word count
 │   └── tests/              # 62 pytest tests
 ├── frontend/
 │   ├── src/
-│   │   ├── api/            # REST client + SSE stream
+│   │   ├── api/            # REST client + SSE stream parser
 │   │   ├── components/
 │   │   │   ├── artifacts/  # Outline, Draft, Review, Export viewers
-│   │   │   ├── interactive/# Chat panel, message input
-│   │   │   ├── layout/     # Sidebar, main area
-│   │   │   └── shared/     # Markdown renderer, error boundary
-│   │   ├── stores/         # Zustand stores (session, chat, draft, nav)
-│   │   ├── lib/            # Shared utilities (export helpers)
-│   │   └── contexts/       # Theme context
+│   │   │   ├── interactive/# Chat panel, message input, tool activity
+│   │   │   ├── layout/     # Sidebar (workflow stepper, sessions), main area
+│   │   │   ├── shared/     # Markdown renderer, error boundary
+│   │   │   └── ui/         # Background beams, shadcn/ui primitives
+│   │   ├── stores/         # Zustand stores (session, chat, draft, nav, sessionList)
+│   │   ├── lib/            # Export utilities
+│   │   └── contexts/       # Theme context (dark default)
 │   └── vitest.config.ts    # 44 vitest tests
 ├── scripts/
 │   └── dev.sh              # Start both servers
