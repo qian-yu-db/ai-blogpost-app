@@ -119,6 +119,19 @@ export async function getStats(content: string): Promise<StatsResponse> {
   return response.json()
 }
 
+// Draft Update API
+
+export async function updateDraft(sessionId: string, content: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/session/${sessionId}/update-draft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  })
+  if (!response.ok) {
+    throw new Error('Failed to update draft')
+  }
+}
+
 // Export API
 
 export async function exportMarkdown(content: string, title: string): Promise<Blob> {

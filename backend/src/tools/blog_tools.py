@@ -167,6 +167,27 @@ async def start_review(session_id: str) -> str:
     return "Phase transitioned to reviewing. Now review the draft using the review_draft tool."
 
 
+async def revise_draft(session_id: str, revised_content: str, revision_notes: str = "") -> str:
+    """Replace the current draft with revised content."""
+    session = session_manager.get_session(session_id)
+    if not session:
+        return "Error: Session not found"
+    session_manager.update_session(session_id, draft_content=revised_content)
+    summary = f"Draft revised ({len(revised_content)} chars)."
+    if revision_notes:
+        summary += f" Changes: {revision_notes}"
+    return summary
+
+
+async def finish_review(session_id: str) -> str:
+    """Transition from reviewing to exporting phase."""
+    session = session_manager.get_session(session_id)
+    if not session:
+        return "Error: Session not found"
+    session_manager.update_phase(session_id, WorkflowPhase.EXPORTING)
+    return "Phase transitioned to exporting. The blog post is ready for download."
+
+
 async def get_word_stats(content: str) -> str:
     """Get word count, character count, and estimated reading time."""
     stats = calculate_stats(content)

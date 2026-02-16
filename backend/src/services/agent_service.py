@@ -196,6 +196,16 @@ async def run_agentic_session(session_id: str, user_message: str) -> AsyncIterat
                 yield _format_sse("phase_change", {"phase": session.workflow_phase.value})
             elif tool_block.name == "create_outline":
                 yield _format_sse("outline", {"content": result})
+            elif tool_block.name == "revise_draft":
+                # Emit draft_updated event with new content
+                session = session_manager.get_session(session_id)
+                if session:
+                    yield _format_sse("draft_updated", {"content": session.draft_content})
+            elif tool_block.name == "finish_review":
+                session = session_manager.get_session(session_id)
+                system_prompt = _get_system_prompt(session.workflow_phase)
+                tools = get_tool_definitions(phase=session.workflow_phase.value)
+                yield _format_sse("phase_change", {"phase": session.workflow_phase.value})
             elif tool_block.name == "review_draft":
                 try:
                     yield _format_sse("review", {"suggestions": json.loads(result)})

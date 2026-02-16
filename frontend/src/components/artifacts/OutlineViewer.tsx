@@ -7,7 +7,7 @@ import { useChatStore } from '@/stores/chatStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useNavigationStore } from '@/stores/navigationStore'
 import { transitionPhase, sendMessage } from '@/api/client'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2, FileText, Loader2 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 
 export function OutlineViewer() {
@@ -88,15 +88,17 @@ export function OutlineViewer() {
 
   if (!outline) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center text-muted-foreground gap-3">
+        <FileText className="h-10 w-10 text-muted-foreground/30" />
         <p className="text-sm">No outline generated yet</p>
+        <p className="text-xs">Start chatting to create your blog post outline</p>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex items-center justify-between border-b bg-accent/50 px-4 py-3">
         <h3 className="font-semibold text-sm">Outline</h3>
         {phase === 'planning' && (
           <Button size="sm" onClick={handleApprove} disabled={isStreaming}>

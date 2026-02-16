@@ -9,7 +9,9 @@ import { useNavigationStore } from '@/stores/navigationStore'
 import { useSessionListStore, loadSession, WELCOME_MESSAGE, validateBackendSession } from '@/stores/sessionListStore'
 import { startSession, sendMessage } from '@/api/client'
 import type { ChatMessage as ChatMessageType } from '@/types'
-import { Loader2 } from 'lucide-react'
+
+// Module-level flag survives React 18 StrictMode remounts
+let _initStarted = false
 
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages)
@@ -31,15 +33,15 @@ export function ChatPanel() {
   const setDraft = useDraftStore((s) => s.setDraft)
   const setSuggestions = useDraftStore((s) => s.setSuggestions)
 
+  const setReviewSummary = useDraftStore((s) => s.setReviewSummary)
   const setActiveArtifact = useNavigationStore((s) => s.setActiveArtifact)
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const initialized = useRef(false)
   const draftResetNeeded = useRef(false)
 
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
+    if (_initStarted) return
+    _initStarted = true
     initSession()
   }, [])
 
@@ -53,14 +55,13 @@ export function ChatPanel() {
     if (slots.length > 0) {
       const activeSlot = slots[activeIndex]
       if (activeSlot && loadSession(activeSlot.sessionId)) {
-        // Validate backend session exists
-        validateBackendSession(activeSlot.sessionId).then((result) => {
-          if (!result.valid && result.newSessionId) {
-            useSessionStore.getState().setSessionId(result.newSessionId)
-            const store = useSessionListStore.getState()
-            store.updateSlot(store.activeIndex, { sessionId: result.newSessionId })
-          }
-        })
+        // Validate backend session exists — await so sessionId is correct before user can send
+        const result = await validateBackendSession(activeSlot.sessionId)
+        if (!result.valid && result.newSessionId) {
+          useSessionStore.getState().setSessionId(result.newSessionId)
+          const store = useSessionListStore.getState()
+          store.updateSlot(store.activeIndex, { sessionId: result.newSessionId })
+        }
         return // Restored from localStorage
       }
     }
@@ -165,8 +166,19 @@ export function ChatPanel() {
             }
             break
 
-          case 'done':
+          case 'draft_updated':
+            setDraft(event.content)
+            setActiveArtifact('draft')
             break
+
+          case 'done': {
+            // Capture the review summary when in reviewing phase
+            const currentPhase = useSessionStore.getState().phase
+            if ((currentPhase === 'reviewing' || currentPhase === 'exporting') && fullText) {
+              setReviewSummary(fullText)
+            }
+            break
+          }
         }
       }
     } catch (err) {
@@ -174,7 +186,7 @@ export function ChatPanel() {
     } finally {
       setIsStreaming(false)
     }
-  }, [sessionId, addMessage, updateLastAssistantMessage, addToolActivity, updateToolActivity, setIsStreaming, setError, setPhase, appendOutline, appendDraft, setDraft, setSuggestions, setActiveArtifact])
+  }, [sessionId, addMessage, updateLastAssistantMessage, addToolActivity, updateToolActivity, setIsStreaming, setError, setPhase, appendOutline, appendDraft, setDraft, setSuggestions, setReviewSummary, setActiveArtifact])
 
   const queuedMessage = useChatStore((s) => s.queuedMessage)
   const setQueuedMessage = useChatStore((s) => s.setQueuedMessage)
@@ -194,9 +206,17 @@ export function ChatPanel() {
             <ChatMessage key={msg.id} message={msg} />
           ))}
           {isStreaming && messages[messages.length - 1]?.content === '' && (
-            <div className="flex items-center gap-2 text-muted-foreground pl-11">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Thinking...</span>
+            <div className="flex items-center gap-1.5 pl-11">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-2 w-2 rounded-full bg-primary/60"
+                  style={{
+                    animation: 'bounce-dot 1.4s infinite ease-in-out both',
+                    animationDelay: `${i * 0.16}s`,
+                  }}
+                />
+              ))}
             </div>
           )}
           <div ref={scrollRef} />

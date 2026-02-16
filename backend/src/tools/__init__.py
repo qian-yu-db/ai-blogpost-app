@@ -1,7 +1,7 @@
 """Tool registry for the blog assistant agent."""
 
 from src.tools.reference_tools import fetch_url, fetch_databricks_docs, parse_code_file
-from src.tools.blog_tools import create_outline, review_draft, get_word_stats, start_drafting, start_review
+from src.tools.blog_tools import create_outline, review_draft, get_word_stats, start_drafting, start_review, revise_draft, finish_review
 
 # Tool registry: maps tool names to (callable, description, input_schema)
 TOOL_REGISTRY: dict[str, dict] = {
@@ -125,6 +125,29 @@ TOOL_REGISTRY: dict[str, dict] = {
         },
         "inject_session_id": True,
     },
+    "revise_draft": {
+        "fn": revise_draft,
+        "description": "Replace the current draft with revised content. Use this after applying fixes or improvements to the blog post.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "revised_content": {"type": "string", "description": "The full revised markdown content"},
+                "revision_notes": {"type": "string", "description": "Brief summary of what was changed"},
+            },
+            "required": ["revised_content"],
+        },
+        "inject_session_id": True,
+    },
+    "finish_review": {
+        "fn": finish_review,
+        "description": "Transition from reviewing to exporting phase. Call this after completing the review and providing the final summary to indicate the blog post is ready for export.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "inject_session_id": True,
+    },
     "get_word_stats": {
         "fn": get_word_stats,
         "description": "Get word count, character count, and estimated reading time for content.",
@@ -143,7 +166,7 @@ TOOL_REGISTRY: dict[str, dict] = {
 PHASE_TOOLS: dict[str, list[str]] = {
     "planning": ["fetch_url", "fetch_databricks_docs", "parse_code_file", "start_drafting"],
     "drafting": ["fetch_url", "fetch_databricks_docs", "parse_code_file", "create_outline", "get_word_stats", "start_review"],
-    "reviewing": ["review_draft", "get_word_stats"],
+    "reviewing": ["review_draft", "get_word_stats", "revise_draft", "fetch_url", "fetch_databricks_docs", "finish_review"],
     "exporting": ["get_word_stats"],
 }
 

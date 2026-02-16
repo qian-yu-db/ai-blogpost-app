@@ -22,9 +22,22 @@ export type SessionSlot = {
   label: string
   phase: WorkflowPhase
   updatedAt: string
+  wordCount?: number
+  previewSnippet?: string
 }
 
-const MAX_SLOTS = 3
+export const MAX_SLOTS = 10
+
+export function formatRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
 
 interface SessionListState {
   slots: SessionSlot[]
@@ -34,6 +47,8 @@ interface SessionListState {
   removeSlot: (index: number) => void
   setActiveIndex: (index: number) => void
   updateSlot: (index: number, update: Partial<SessionSlot>) => void
+  clearOtherSlots: () => void
+  clearOlderThan: (cutoffIso: string) => void
 }
 
 export const useSessionListStore = create<SessionListState>()(
@@ -74,6 +89,37 @@ export const useSessionListStore = create<SessionListState>()(
             i === index ? { ...slot, ...update } : slot
           ),
         })),
+
+      clearOtherSlots: () =>
+        set((state) => {
+          const active = state.slots[state.activeIndex]
+          // Clean up localStorage for all removed sessions
+          state.slots.forEach((slot, i) => {
+            if (i !== state.activeIndex) {
+              localStorage.removeItem(`blog-session-${slot.sessionId}`)
+            }
+          })
+          return {
+            slots: active ? [active] : [],
+            activeIndex: 0,
+          }
+        }),
+
+      clearOlderThan: (cutoffIso) =>
+        set((state) => {
+          const cutoff = new Date(cutoffIso).getTime()
+          const kept: SessionSlot[] = []
+          let newActiveIndex = 0
+          state.slots.forEach((slot, i) => {
+            if (new Date(slot.updatedAt).getTime() >= cutoff || i === state.activeIndex) {
+              if (i === state.activeIndex) newActiveIndex = kept.length
+              kept.push(slot)
+            } else {
+              localStorage.removeItem(`blog-session-${slot.sessionId}`)
+            }
+          })
+          return { slots: kept, activeIndex: newActiveIndex }
+        }),
     }),
     {
       name: 'blog-session-list',
@@ -100,6 +146,7 @@ export function saveCurrentSession(sessionId: string) {
       outline: draft.outline,
       draft: draft.draft,
       suggestions: draft.suggestions,
+      reviewSummary: draft.reviewSummary,
       stats: draft.stats,
     },
     nav: { activeArtifact: nav.activeArtifact },
@@ -107,14 +154,29 @@ export function saveCurrentSession(sessionId: string) {
 
   localStorage.setItem(`blog-session-${sessionId}`, JSON.stringify(snapshot))
 
+  // Auto-generate label from topic or first user message
+  let label = session.planningContext.topic
+  if (!label) {
+    const firstUserMsg = chat.messages.find((m) => m.role === 'user')
+    if (firstUserMsg) {
+      label = firstUserMsg.content.length > 40
+        ? firstUserMsg.content.slice(0, 40) + '...'
+        : firstUserMsg.content
+    }
+  }
+  if (!label) label = 'Untitled Post'
+
+  const wordCount = draft.stats?.word_count
+
   // Update the slot metadata
   const listStore = useSessionListStore.getState()
   const idx = listStore.slots.findIndex((s) => s.sessionId === sessionId)
   if (idx !== -1) {
     listStore.updateSlot(idx, {
       phase: session.phase,
-      label: session.planningContext.topic || 'Untitled Post',
+      label,
       updatedAt: new Date().toISOString(),
+      wordCount,
     })
   }
 }
@@ -143,6 +205,7 @@ export function loadSession(sessionId: string): boolean {
     outline: snapshot.draft.outline,
     draft: snapshot.draft.draft,
     suggestions: snapshot.draft.suggestions,
+    reviewSummary: snapshot.draft.reviewSummary || '',
     stats: snapshot.draft.stats,
     isGenerating: false,
   })

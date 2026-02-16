@@ -7,8 +7,15 @@ def export_markdown(content: str) -> str:
 
 
 def export_pdf(content: str, title: str = "blog-post") -> bytes:
-    """Convert markdown to PDF."""
-    from weasyprint import HTML
+    """Convert markdown to PDF. Requires WeasyPrint system libs (pango, gobject)."""
+    try:
+        from weasyprint import HTML
+    except OSError as e:
+        raise RuntimeError(
+            "PDF export requires WeasyPrint system libraries. "
+            "On macOS: brew install pango glib. "
+            f"Original error: {e}"
+        )
 
     md = markdown.Markdown(extensions=["fenced_code", "codehilite", "tables"])
     html_content = md.convert(content)
